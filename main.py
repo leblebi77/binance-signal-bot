@@ -9,10 +9,13 @@ COINGECKO_URL = "https://api.coingecko.com/api/v3/simple/price"
 previous_ratio = None
 
 def get_open_interest():
-    """Binance'tan BTCUSDT.P Open Interest verisi çeker"""
+    """Binance'tan BTCUSDT Open Interest verisi çeker"""
     try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
         params = {"symbol": "BTCUSDT"}
-        response = requests.get(BINANCE_OI_URL, params=params, timeout=10)
+        response = requests.get(BINANCE_OI_URL, params=params, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
         oi = float(data['openInterest'])

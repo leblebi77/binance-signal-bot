@@ -9,7 +9,7 @@ sys.stderr.reconfigure(line_buffering=True)
 
 # API Endpoints
 BINANCE_OI_URL = "https://fapi.binance.com/fapi/v1/openInterest"
-COINGECKO_URL = "https://api.coingecko.com/api/v3/simple/price"
+BINANCE_PRICE_URL = "https://fapi.binance.com/fapi/v1/ticker/price"  # Futures API kullan
 
 previous_ratio = None
 
@@ -100,7 +100,11 @@ def main():
             oi = get_open_interest()
             marketcap = get_marketcap()
             
-            if oi and marketcap:
+            # Hata durumunda biraz bekle
+            if not (oi and marketcap):
+                print("⚠️ Veri alınamadı, 10 saniye sonra tekrar denenecek...", flush=True)
+                time.sleep(10)
+                continue
                 # Oranı hesapla (Open Interest / Market Cap)
                 # OI BTC cinsinden, MarketCap USD cinsinden - normalize edelim
                 ratio = (oi * 1e8) / marketcap  # Daha okunabilir sayılar için

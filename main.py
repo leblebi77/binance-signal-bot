@@ -7,53 +7,68 @@ from datetime import datetime
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-# API Endpoints
-BINANCE_OI_URL = "https://fapi.binance.com/fapi/v1/openInterest"
-BINANCE_PRICE_URL = "https://fapi.binance.com/fapi/v1/ticker/price"  # Futures API kullan
+# API Endpoints - CoinGlass (Ücretsiz, API Key gerektirmiyor)
+COINGLASS_OI_URL = "https://open-api.coinglass.com/public/v2/open_interest"
+COINGLASS_PRICE_URL = "https://open-api.coinglass.com/public/v2/indicator"
 
 previous_ratio = None
 
 def get_open_interest():
-    """Binance'tan BTCUSDT.P (Perpetual) Open Interest verisi çeker"""
+    """CoinGlass'tan Bitcoin Open Interest verisi çeker"""
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'accept': 'application/json'
         }
-        # Binance Futures için sembol BTCUSDT (API'de .P olmadan)
-        params = {"symbol": "BTCUSDT"}
-        response = requests.get(BINANCE_OI_URL, params=params, headers=headers, timeout=10)
+        # CoinGlass API - Bitcoin OI
+        params = {
+            "symbol": "BTC",
+            "interval": "0"  # Anlık veri
+        }
+        response = requests.get(COINGLASS_OI_URL, params=params, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
-        oi = float(data['openInterest'])
-        print(f"✓ Open Interest: {oi:,.2f} BTC", flush=True)
-        return oi
+        
+        if data.get('success') and data.get('data'):
+            # Total OI (USD cinsinden)
+            oi_usd = float(data['data'][0]['openInterest'])
+            print(f"✓ Open Interest: ${oi_usd:,.0f}", flush=True)
+            return oi_usd
+        else:
+            print(f"✗ Open Interest verisi alınamadı", flush=True)
+            return None
     except Exception as e:
-        print(f"✗ Open Interest hatası: {e}")
+        print(f"✗ Open Interest hatası: {e}", flush=True)
         return None
 
 def get_marketcap():
-    """Binance'tan BTC fiyatını çekip market cap hesaplar (yaklaşık)"""
+    """CoinGlass'tan Bitcoin fiyat ve market cap verisi çeker"""
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'accept': 'application/json'
         }
-        # BTC fiyatını çek
-        price_url = "https://api.binance.com/api/v3/ticker/price"
-        params = {"symbol": "BTCUSDT"}
-        response = requests.get(price_url, params=params, headers=headers, timeout=10)
+        # CoinGlass price endpoint
+        params = {"symbol": "BTC"}
+        response = requests.get(COINGLASS_PRICE_URL, params=params, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
-        btc_price = float(data['price'])
         
-        # Sabit BTC supply (yaklaşık 19.5M BTC)
-        btc_supply = 19_500_000
-        marketcap = btc_price * btc_supply
-        
-        print(f"✓ BTC Fiyat: ${btc_price:,.2f}", flush=True)
-        print(f"✓ Market Cap (yaklaşık): ${marketcap:,.0f}", flush=True)
-        return marketcap
+        if data.get('success') and data.get('data'):
+            btc_price = float(data['data'][0]['price'])
+            
+            # Sabit BTC supply (yaklaşık 19.5M BTC)
+            btc_supply = 19_500_000
+            marketcap = btc_price * btc_supply
+            
+            print(f"✓ BTC Fiyat: ${btc_price:,.2f}", flush=True)
+            print(f"✓ Market Cap (yaklaşık): ${marketcap:,.0f}", flush=True)
+            return marketcap
+        else:
+            print(f"✗ Price verisi alınamadı", flush=True)
+            return None
     except Exception as e:
-        print(f"✗ Market Cap hatası: {e}")
+        print(f"✗ Market Cap hatası: {e}", flush=True)
         return None
 
 def generate_signal(current_ratio):
@@ -62,7 +77,7 @@ def generate_signal(current_ratio):
     
     if previous_ratio is None:
         previous_ratio = current_ratio
-        print("⏳ İlk oran kaydedildi, bir sonraki döngüde sinyal gelecek...")
+        print("⏳ İlk oran kaydedildi, bir sonraki döngüde sinyal gelecek...", flush=True)
         return None
     
     if current_ratio < previous_ratio:
@@ -75,26 +90,26 @@ def generate_signal(current_ratio):
         signal = "⚪ NÖTR"
         change = 0
     
-    print(f"\n{'='*50}")
-    print(f"📊 SİNYAL: {signal}")
-    print(f"📈 Oran Değişimi: {change:+.4f}%")
-    print(f"📉 Önceki Oran: {previous_ratio:.6f}")
-    print(f"📊 Şimdiki Oran: {current_ratio:.6f}")
-    print(f"{'='*50}\n")
+    print(f"\n{'='*50}", flush=True)
+    print(f"📊 SİNYAL: {signal}", flush=True)
+    print(f"📈 Oran Değişimi: {change:+.4f}%", flush=True)
+    print(f"📉 Önceki Oran: {previous_ratio:.6f}", flush=True)
+    print(f"📊 Şimdiki Oran: {current_ratio:.6f}", flush=True)
+    print(f"{'='*50}\n", flush=True)
     
     previous_ratio = current_ratio
     return signal
 
 def main():
     """Ana döngü - 30 saniyede bir çalışır"""
-    print("🚀 Binance Signal Bot Başlatıldı!", flush=True)
+    print("🚀 Binance Signal Bot Başlatıldı (CoinGlass API)!", flush=True)
     print(f"⏰ Her 30 saniyede bir kontrol edilecek...\n", flush=True)
     
     while True:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"\n⏰ Zaman: {timestamp}")
-            print("-" * 50)
+            print(f"\n⏰ Zaman: {timestamp}", flush=True)
+            print("-" * 50, flush=True)
             
             # Verileri çek
             oi = get_open_interest()
@@ -105,25 +120,23 @@ def main():
                 print("⚠️ Veri alınamadı, 10 saniye sonra tekrar denenecek...", flush=True)
                 time.sleep(10)
                 continue
-                # Oranı hesapla (Open Interest / Market Cap)
-                # OI BTC cinsinden, MarketCap USD cinsinden - normalize edelim
-                ratio = (oi * 1e8) / marketcap  # Daha okunabilir sayılar için
-                print(f"📊 OI/MarketCap Oranı: {ratio:.6f}")
-                
-                # Sinyal üret
-                generate_signal(ratio)
-            else:
-                print("⚠️ Veri alınamadı, bir sonraki döngüde tekrar denenecek...")
+            
+            # Oranı hesapla (OI / MarketCap)
+            ratio = oi / marketcap
+            print(f"📊 OI/MarketCap Oranı: {ratio:.8f}", flush=True)
+            
+            # Sinyal üret
+            generate_signal(ratio)
             
             # 30 saniye bekle
-            print(f"💤 Bir sonraki kontrol 30 saniye sonra...\n")
+            print(f"💤 Bir sonraki kontrol 30 saniye sonra...\n", flush=True)
             time.sleep(30)
             
         except KeyboardInterrupt:
-            print("\n\n👋 Bot durduruldu.")
+            print("\n\n👋 Bot durduruldu.", flush=True)
             break
         except Exception as e:
-            print(f"❌ Beklenmeyen hata: {e}")
+            print(f"❌ Beklenmeyen hata: {e}", flush=True)
             time.sleep(30)
 
 if __name__ == "__main__":

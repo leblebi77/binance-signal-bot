@@ -9,11 +9,12 @@ COINGECKO_URL = "https://api.coingecko.com/api/v3/simple/price"
 previous_ratio = None
 
 def get_open_interest():
-    """Binance'tan BTCUSDT Open Interest verisi çeker"""
+    """Binance'tan BTCUSDT.P (Perpetual) Open Interest verisi çeker"""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
+        # Binance Futures için sembol BTCUSDT (API'de .P olmadan)
         params = {"symbol": "BTCUSDT"}
         response = requests.get(BINANCE_OI_URL, params=params, headers=headers, timeout=10)
         response.raise_for_status()

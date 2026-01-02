@@ -1,6 +1,11 @@
 import requests
 import time
+import sys
 from datetime import datetime
+
+# Python output buffering'i kapat
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
 
 # API Endpoints
 BINANCE_OI_URL = "https://fapi.binance.com/fapi/v1/openInterest"
@@ -20,7 +25,7 @@ def get_open_interest():
         response.raise_for_status()
         data = response.json()
         oi = float(data['openInterest'])
-        print(f"✓ Open Interest: {oi:,.2f} BTC")
+        print(f"✓ Open Interest: {oi:,.2f} BTC", flush=True)
         return oi
     except Exception as e:
         print(f"✗ Open Interest hatası: {e}")
@@ -44,8 +49,8 @@ def get_marketcap():
         btc_supply = 19_500_000
         marketcap = btc_price * btc_supply
         
-        print(f"✓ BTC Fiyat: ${btc_price:,.2f}")
-        print(f"✓ Market Cap (yaklaşık): ${marketcap:,.0f}")
+        print(f"✓ BTC Fiyat: ${btc_price:,.2f}", flush=True)
+        print(f"✓ Market Cap (yaklaşık): ${marketcap:,.0f}", flush=True)
         return marketcap
     except Exception as e:
         print(f"✗ Market Cap hatası: {e}")
@@ -82,8 +87,8 @@ def generate_signal(current_ratio):
 
 def main():
     """Ana döngü - 30 saniyede bir çalışır"""
-    print("🚀 Binance Signal Bot Başlatıldı!")
-    print(f"⏰ Her 30 saniyede bir kontrol edilecek...\n")
+    print("🚀 Binance Signal Bot Başlatıldı!", flush=True)
+    print(f"⏰ Her 30 saniyede bir kontrol edilecek...\n", flush=True)
     
     while True:
         try:

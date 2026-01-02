@@ -26,18 +26,25 @@ def get_open_interest():
         return None
 
 def get_marketcap():
-    """CoinGecko'dan Bitcoin Market Cap verisi çeker (USD)"""
+    """Binance'tan BTC fiyatını çekip market cap hesaplar (yaklaşık)"""
     try:
-        params = {
-            "ids": "bitcoin",
-            "vs_currencies": "usd",
-            "include_market_cap": "true"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        response = requests.get(COINGECKO_URL, params=params, timeout=10)
+        # BTC fiyatını çek
+        price_url = "https://api.binance.com/api/v3/ticker/price"
+        params = {"symbol": "BTCUSDT"}
+        response = requests.get(price_url, params=params, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
-        marketcap = data['bitcoin']['usd_market_cap']
-        print(f"✓ Market Cap: ${marketcap:,.0f}")
+        btc_price = float(data['price'])
+        
+        # Sabit BTC supply (yaklaşık 19.5M BTC)
+        btc_supply = 19_500_000
+        marketcap = btc_price * btc_supply
+        
+        print(f"✓ BTC Fiyat: ${btc_price:,.2f}")
+        print(f"✓ Market Cap (yaklaşık): ${marketcap:,.0f}")
         return marketcap
     except Exception as e:
         print(f"✗ Market Cap hatası: {e}")
@@ -99,6 +106,7 @@ def main():
                 print("⚠️ Veri alınamadı, bir sonraki döngüde tekrar denenecek...")
             
             # 30 saniye bekle
+            print(f"💤 Bir sonraki kontrol 30 saniye sonra...\n")
             time.sleep(30)
             
         except KeyboardInterrupt:

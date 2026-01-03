@@ -8,34 +8,24 @@ sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
 # API Endpoints
+BINANCE_OI_URL = "https://fapi.binance.com/fapi/v1/openInterest"
 COINPAPRIKA_URL = "https://api.coinpaprika.com/v1/tickers/btc-bitcoin"
-# Glassnode ücretsiz endpoint (limits var ama Open Interest var)
-GLASSNODE_OI_URL = "https://api.glassnode.com/v1/metrics/derivatives/futures_open_interest_sum"
 
 previous_ratio = None
 
 def get_open_interest():
-    """Glassnode'dan Bitcoin Open Interest verisi çeker (ücretsiz tier)"""
+    """Binance'tan BTCUSDT.P (Perpetual) Open Interest verisi çeker"""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        params = {
-            "a": "BTC",
-            "i": "24h"  # 24 saatlik data
-        }
-        response = requests.get(GLASSNODE_OI_URL, params=params, headers=headers, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            # Glassnode USD cinsinden OI veriyor
-            if data and len(data) > 0:
-                oi_usd = float(data[-1]['v'])  # En son değer
-                print(f"✓ Open Interest: ${oi_usd:,.0f}", flush=True)
-                return oi_usd
-        
-        print(f"✗ Open Interest verisi alınamadı (Status: {response.status_code})", flush=True)
-        return None
+        params = {"symbol": "BTCUSDT"}
+        response = requests.get(BINANCE_OI_URL, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        oi = float(data['openInterest'])
+        print(f"✓ Open Interest: {oi:,.2f} BTC", flush=True)
+        return oi
     except Exception as e:
         print(f"✗ Open Interest hatası: {e}", flush=True)
         return None
@@ -82,8 +72,8 @@ def generate_signal(current_ratio):
     print(f"\n{'='*50}", flush=True)
     print(f"📊 SİNYAL: {signal}", flush=True)
     print(f"📈 Oran Değişimi: {change:+.4f}%", flush=True)
-    print(f"📉 Önceki Oran: {previous_ratio:.8f}", flush=True)
-    print(f"📊 Şimdiki Oran: {current_ratio:.8f}", flush=True)
+    print(f"📉 Önceki Oran: {previous_ratio:.6f}", flush=True)
+    print(f"📊 Şimdiki Oran: {current_ratio:.6f}", flush=True)
     print(f"{'='*50}\n", flush=True)
     
     previous_ratio = current_ratio
@@ -92,8 +82,8 @@ def generate_signal(current_ratio):
 def main():
     """Ana döngü - 30 saniyede bir çalışır"""
     print("🚀 Bitcoin Signal Bot Başlatıldı!", flush=True)
-    print(f"📡 Glassnode (OI) + CoinPaprika (Market Cap)", flush=True)
-    print(f"⏰ Her 30 saniyede bir kontrol edilecek...\n", flush=True)
+    print(f"📡 Binance Futures (OI) + CoinPaprika (Market Cap)", flush=True)
+    print(f"⏰ Her 5 dakikada bir kontrol edilecek...\n", flush=True)
     
     while True:
         try:
@@ -105,29 +95,30 @@ def main():
             oi = get_open_interest()
             marketcap = get_marketcap()
             
-            # Hata durumunda biraz bekle
+            # Hata durumunda 1 dakika bekle
             if not (oi and marketcap):
-                print("⚠️ Veri alınamadı, 10 saniye sonra tekrar denenecek...", flush=True)
-                time.sleep(10)
+                print("⚠️ Veri alınamadı, 1 dakika sonra tekrar denenecek...", flush=True)
+                time.sleep(60)
                 continue
             
-            # Oranı hesapla (OI / MarketCap)
-            ratio = oi / marketcap
-            print(f"📊 OI/MarketCap Oranı: {ratio:.8f}", flush=True)
+            # Oranı hesapla (Open Interest / Market Cap)
+            # OI BTC cinsinden, MarketCap USD cinsinden - normalize edelim
+            ratio = (oi * 1e8) / marketcap  # Daha okunabilir sayılar için
+            print(f"📊 OI/MarketCap Oranı: {ratio:.6f}", flush=True)
             
             # Sinyal üret
             generate_signal(ratio)
             
-            # 30 saniye bekle
-            print(f"💤 Bir sonraki kontrol 30 saniye sonra...\n", flush=True)
-            time.sleep(30)
+            # 5 dakika bekle (300 saniye)
+            print(f"💤 Bir sonraki kontrol 5 dakika sonra...\n", flush=True)
+            time.sleep(300)
             
         except KeyboardInterrupt:
             print("\n\n👋 Bot durduruldu.", flush=True)
             break
         except Exception as e:
             print(f"❌ Beklenmeyen hata: {e}", flush=True)
-            time.sleep(30)
+            time.sleep(60)  # Hata durumunda 1 dakika bekle
 
 if __name__ == "__main__":
     main()

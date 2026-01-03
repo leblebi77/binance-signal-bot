@@ -8,50 +8,48 @@ sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
 # API Endpoints
-COINGLASS_OI_URL = "https://open-api.coinglass.com/public/v2/open_interest"
-COINPAPRIKA_PRICE_URL = "https://api.coinpaprika.com/v1/tickers/btc-bitcoin"  # Alternatif, güvenilir API
+COINPAPRIKA_URL = "https://api.coinpaprika.com/v1/tickers/btc-bitcoin"
+# Glassnode ücretsiz endpoint (limits var ama Open Interest var)
+GLASSNODE_OI_URL = "https://api.glassnode.com/v1/metrics/derivatives/futures_open_interest_sum"
 
 previous_ratio = None
 
 def get_open_interest():
-    """CoinGlass'tan Bitcoin Open Interest verisi çeker"""
+    """Glassnode'dan Bitcoin Open Interest verisi çeker (ücretsiz tier)"""
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'accept': 'application/json'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        # CoinGlass API - Bitcoin OI
         params = {
-            "symbol": "BTC",
-            "interval": "0"  # Anlık veri
+            "a": "BTC",
+            "i": "24h"  # 24 saatlik data
         }
-        response = requests.get(COINGLASS_OI_URL, params=params, headers=headers, timeout=15)
-        response.raise_for_status()
-        data = response.json()
+        response = requests.get(GLASSNODE_OI_URL, params=params, headers=headers, timeout=15)
         
-        if data.get('success') and data.get('data'):
-            # Total OI (USD cinsinden)
-            oi_usd = float(data['data'][0]['openInterest'])
-            print(f"✓ Open Interest: ${oi_usd:,.0f}", flush=True)
-            return oi_usd
-        else:
-            print(f"✗ Open Interest verisi alınamadı", flush=True)
-            return None
+        if response.status_code == 200:
+            data = response.json()
+            # Glassnode USD cinsinden OI veriyor
+            if data and len(data) > 0:
+                oi_usd = float(data[-1]['v'])  # En son değer
+                print(f"✓ Open Interest: ${oi_usd:,.0f}", flush=True)
+                return oi_usd
+        
+        print(f"✗ Open Interest verisi alınamadı (Status: {response.status_code})", flush=True)
+        return None
     except Exception as e:
         print(f"✗ Open Interest hatası: {e}", flush=True)
         return None
 
 def get_marketcap():
-    """CoinPaprika'dan Bitcoin market cap verisi çeker (güvenilir, ücretsiz)"""
+    """CoinPaprika'dan Bitcoin market cap verisi çeker"""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        response = requests.get(COINPAPRIKA_PRICE_URL, headers=headers, timeout=15)
+        response = requests.get(COINPAPRIKA_URL, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
         
-        # CoinPaprika direkt market cap veriyor
         marketcap = float(data['quotes']['USD']['market_cap'])
         btc_price = float(data['quotes']['USD']['price'])
         
@@ -84,8 +82,8 @@ def generate_signal(current_ratio):
     print(f"\n{'='*50}", flush=True)
     print(f"📊 SİNYAL: {signal}", flush=True)
     print(f"📈 Oran Değişimi: {change:+.4f}%", flush=True)
-    print(f"📉 Önceki Oran: {previous_ratio:.6f}", flush=True)
-    print(f"📊 Şimdiki Oran: {current_ratio:.6f}", flush=True)
+    print(f"📉 Önceki Oran: {previous_ratio:.8f}", flush=True)
+    print(f"📊 Şimdiki Oran: {current_ratio:.8f}", flush=True)
     print(f"{'='*50}\n", flush=True)
     
     previous_ratio = current_ratio
@@ -93,8 +91,8 @@ def generate_signal(current_ratio):
 
 def main():
     """Ana döngü - 30 saniyede bir çalışır"""
-    print("🚀 Binance Signal Bot Başlatıldı!", flush=True)
-    print(f"📡 CoinGlass (OI) + CoinPaprika (Market Cap)", flush=True)
+    print("🚀 Bitcoin Signal Bot Başlatıldı!", flush=True)
+    print(f"📡 Glassnode (OI) + CoinPaprika (Market Cap)", flush=True)
     print(f"⏰ Her 30 saniyede bir kontrol edilecek...\n", flush=True)
     
     while True:

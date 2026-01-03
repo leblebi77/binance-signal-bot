@@ -7,9 +7,9 @@ from datetime import datetime
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-# API Endpoints - CoinGlass (Ücretsiz, API Key gerektirmiyor)
+# API Endpoints
 COINGLASS_OI_URL = "https://open-api.coinglass.com/public/v2/open_interest"
-COINGLASS_PRICE_URL = "https://open-api.coinglass.com/public/v2/indicator"
+COINPAPRIKA_PRICE_URL = "https://api.coinpaprika.com/v1/tickers/btc-bitcoin"  # Alternatif, güvenilir API
 
 previous_ratio = None
 
@@ -42,31 +42,22 @@ def get_open_interest():
         return None
 
 def get_marketcap():
-    """CoinGlass'tan Bitcoin fiyat ve market cap verisi çeker"""
+    """CoinPaprika'dan Bitcoin market cap verisi çeker (güvenilir, ücretsiz)"""
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'accept': 'application/json'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        # CoinGlass price endpoint
-        params = {"symbol": "BTC"}
-        response = requests.get(COINGLASS_PRICE_URL, params=params, headers=headers, timeout=15)
+        response = requests.get(COINPAPRIKA_PRICE_URL, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
         
-        if data.get('success') and data.get('data'):
-            btc_price = float(data['data'][0]['price'])
-            
-            # Sabit BTC supply (yaklaşık 19.5M BTC)
-            btc_supply = 19_500_000
-            marketcap = btc_price * btc_supply
-            
-            print(f"✓ BTC Fiyat: ${btc_price:,.2f}", flush=True)
-            print(f"✓ Market Cap (yaklaşık): ${marketcap:,.0f}", flush=True)
-            return marketcap
-        else:
-            print(f"✗ Price verisi alınamadı", flush=True)
-            return None
+        # CoinPaprika direkt market cap veriyor
+        marketcap = float(data['quotes']['USD']['market_cap'])
+        btc_price = float(data['quotes']['USD']['price'])
+        
+        print(f"✓ BTC Fiyat: ${btc_price:,.2f}", flush=True)
+        print(f"✓ Market Cap: ${marketcap:,.0f}", flush=True)
+        return marketcap
     except Exception as e:
         print(f"✗ Market Cap hatası: {e}", flush=True)
         return None
@@ -102,7 +93,8 @@ def generate_signal(current_ratio):
 
 def main():
     """Ana döngü - 30 saniyede bir çalışır"""
-    print("🚀 Binance Signal Bot Başlatıldı (CoinGlass API)!", flush=True)
+    print("🚀 Binance Signal Bot Başlatıldı!", flush=True)
+    print(f"📡 CoinGlass (OI) + CoinPaprika (Market Cap)", flush=True)
     print(f"⏰ Her 30 saniyede bir kontrol edilecek...\n", flush=True)
     
     while True:
